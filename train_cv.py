@@ -66,6 +66,7 @@ if __name__ == "__main__":
         exit(1)
 
     model = get_model(args)
+    print(args)
     optimizer = optimizers.Adam()
     optimizer.setup(model)
     optimizer.add_hook(chainer.optimizer.WeightDecay(1e-4))
@@ -88,7 +89,7 @@ if __name__ == "__main__":
         chainer.config.enable_backprop = True
         batch_array = [convert.concat_examples([x[idx] for x in batch], args.gpu) for idx in data_idxs]
         model.cleargrads()
-        loss, pred_y, _ = model(tuple(map(Variable, batch_array)))
+        loss, pred_y, _ = model(tuple(map(chainer.Variable, batch_array)))
         loss.backward()
         loss.unchain_backward()
         optimizer.update()
@@ -122,7 +123,7 @@ if __name__ == "__main__":
                 iter_cnt + 1, train_eval("loss"), train_eval("ade"), train_eval("fde"),
                 valid_eval("loss"), valid_eval("ade"), valid_eval("fde"), time.time()-st))
             train_eval.update_summary(summary, iter_cnt, ["loss", "ade", "fde"])
-            valid_eval.update_summary(summary, iter_cnt, ["loss", "ade", "fde"])
+            #valid_eval.update_summary(summary, iter_cnt, ["loss", "ade", "fde"])
 
             predictions = prediction_dict["predictions"]
             pred_list = [[pred for vk, v_dict in sorted(predictions.items())

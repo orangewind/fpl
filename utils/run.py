@@ -88,7 +88,7 @@ if __name__ == "__main__":
         print("Scripts written to {}".format(script_path))
         with open(script_path, "w") as f:
             f.write("#! /bin/sh\n")
-            f.write("cd {}\n".format(os.getcwd()))
+            f.write("cd {}\n".format(os.getcwd().replace("\\","\\\\")))
             for idx, cmd in enumerate(commands):
                 f.write(cmd+"\n")
         cmd = "chmod +x {}".format(script_path)

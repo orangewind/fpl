@@ -11,7 +11,7 @@ import argparse
 import numpy as np
 from chainer import serializers
 
-from models.cnn import CNN, CNN_Pose, CNN_Ego, CNN_Ego_Pose
+from models.cnn import CNN, CNN_Pose, CNN_Ego, CNN_Ego_Pose, LSTM_EGO_POS
 from logging import getLogger
 
 logger = getLogger('main')
@@ -72,21 +72,23 @@ def get_model(args):
         mean, std = mean[:2], std[:2]
 
     logger.info("Mean: {}, std: {}".format(mean, std))
-    if args.model == "cnn" or args.model == "cnn_scale":
-        model = CNN(mean, std, args.gpu, args.channel_list, args.deconv_list, args.ksize_list,
-                    args.dc_ksize_list, args.inter_list, args.last_list, args.pad_list)
-    elif args.model == "cnn_pose" or args.model == "cnn_pose_scale":
-        model = CNN_Pose(mean, std, args.gpu, args.channel_list, args.deconv_list, args.ksize_list,
-                         args.dc_ksize_list, args.inter_list, args.last_list, args.pad_list)
-    elif args.model == "cnn_ego" or args.model == "cnn_ego_scale":
-        model = CNN_Ego(mean, std, args.gpu, args.channel_list, args.deconv_list, args.ksize_list,
-                        args.dc_ksize_list, args.inter_list, args.last_list, args.pad_list, args.ego_type)
-    elif args.model == "cnn_ego_pose" or args.model == "cnn_ego_pose_scale":
-        model = CNN_Ego_Pose(mean, std, args.gpu, args.channel_list, args.deconv_list, args.ksize_list,
-                             args.dc_ksize_list, args.inter_list, args.last_list, args.pad_list, args.ego_type)
-    else:
-        logger.info("Invalid argument: model={}".format(args.model))
-        exit(1)
+    # if args.model == "cnn" or args.model == "cnn_scale":
+    #     model = CNN(mean, std, args.gpu, args.channel_list, args.deconv_list, args.ksize_list,
+    #                 args.dc_ksize_list, args.inter_list, args.last_list, args.pad_list)
+    # elif args.model == "cnn_pose" or args.model == "cnn_pose_scale":
+    #     model = CNN_Pose(mean, std, args.gpu, args.channel_list, args.deconv_list, args.ksize_list,
+    #                      args.dc_ksize_list, args.inter_list, args.last_list, args.pad_list)
+    # elif args.model == "cnn_ego" or args.model == "cnn_ego_scale":
+    #     model = CNN_Ego(mean, std, args.gpu, args.channel_list, args.deconv_list, args.ksize_list,
+    #                     args.dc_ksize_list, args.inter_list, args.last_list, args.pad_list, args.ego_type)
+    # elif args.model == "cnn_ego_pose" or args.model == "cnn_ego_pose_scale":
+    #     model = CNN_Ego_Pose(mean, std, args.gpu, args.channel_list, args.deconv_list, args.ksize_list,
+    #                             args.dc_ksize_list, args.inter_list, args.last_list, args.pad_list, args.ego_type)
+    # else:
+    #     logger.info("Invalid argument: model={}".format(args.model))
+    #     exit(1)
+    model = LSTM_EGO_POS(mean, std, args.gpu, args.channel_list, args.deconv_list, args.ksize_list,
+                 args.dc_ksize_list, args.inter_list, args.last_list, args.pad_list, args.ego_type)
 
     if args.resume != "":
         serializers.load_npz(args.resume, model)
@@ -123,5 +125,6 @@ def write_prediction(pred_dict, batch, pred_y):
             pred_dict[vid][frame] = {}
 
         result = [vid, frame, pid, flipped, py, None, None, err, traj_type]
-        result = list(map(lambda x: x.tolist() if type(x).__module__ == "numpy" else x, result))
+        result = list(map(lambda x: x.tolist() if type(
+            x).__module__ == "numpy" else x, result))
         pred_dict[vid][frame][pid] = result
