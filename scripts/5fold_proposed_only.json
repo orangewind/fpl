@@ -7,8 +7,8 @@
         "nb_jobs": 1
     },
     "fixed_args": {
-        "in_data": "dataset/id_list_20_180521_173817_20_sp5_2_5.joblib",
-        "nb_iters": 17000,
+        "in_data": "dataset/id_list_20_230311_000236_20_sp5_2_5.joblib",
+        "nb_iters": 1,
         "iter_snapshot": 1000,
         "optimizer": "adam",
         "height": 960,

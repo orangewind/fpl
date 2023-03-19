@@ -301,7 +301,8 @@ class LSTM_Encoder(chainer.Chain):
     def __init__(self, nb_inputs, nb_hidden, nb_outputs):
         super(LSTM_Encoder, self).__init__()
         with self.init_scope():
-            self.lstm1 = L.NStepLSTM(n_layers=1, in_size=nb_inputs, out_size=nb_hidden, dropout=0.5)
+            self.lstm1 = L.NStepLSTM(
+                n_layers=1, in_size=nb_inputs, out_size=nb_hidden, dropout=0.5)
             # self.lstm2 = L.LSTM(nb_hidden, nb_hidden)
             # self.lstm3 = L.LSTM(nb_hidden, nb_hidden)
             # self.fc = L.Linear(nb_hidden, nb_outputs)
@@ -312,7 +313,7 @@ class LSTM_Encoder(chainer.Chain):
         # self.lstm3.reset_state()
 
     def __call__(self, hx, cx, xs):
-        # h = F.swapaxes(x, 1, 2)  # (B, D, L)    
+        # h = F.swapaxes(x, 1, 2)  # (B, D, L)
         # print("输入lstm的数据的大小:", h.shape)
         # h = self.lstm1(h)
         # print("1层lstm输出的数据的大小:", h.shape)
@@ -321,14 +322,35 @@ class LSTM_Encoder(chainer.Chain):
         # 将输入数据转换成列表
 
         # 调用NStepLSTM层，得到输出数据ys
-        hy, cy , ys = self.lstm1(hx, cx, xs)
+        hy, cy, ys = self.lstm1(hx, cx, xs)
 
-        # 将输出数据转换回张量
-        print("输出lstm的数据的大小:", ys.shape)
         return ys
 
+def handlerData(data):
+    data = numpy.asarray(data).tolist()
+    for i in range(len(data)):
+        for j in range(len(data[i])):
+            for k in range(len(data[i][j])):
+                data[i][j][k] = np.float32(cupy.asnumpy(data[i][j][k].data))
+    for i in range(len(data)):
+        data[i] = chainer.backends.cuda.to_gpu(np.asarray(data[i]))
+    for i in range(len(data)):
+        data[i] = chainer.Variable(data[i])
+    return data
 
-class  LSTM_EGO_POS(LSTMBase):
+def handlerDataDecoder(data):
+    data = data.array.tolist()
+    for i in range(len(data)):
+        for j in range(len(data[i])):
+            for k in range(len(data[i][j])):
+                data[i][j][k] = np.float32(cupy.asnumpy(data[i][j][k].data))
+    for i in range(len(data)):
+        data[i] = chainer.backends.cuda.to_gpu(np.asarray(data[i]))
+    for i in range(len(data)):
+        data[i] = chainer.Variable(data[i])
+    return data
+
+class LSTM_EGO_POS(LSTMBase):
     """
     Our full model: feeds locations, egomotions and poses as input
     """
@@ -342,39 +364,56 @@ class  LSTM_EGO_POS(LSTMBase):
             dc_ksize_list = ksize_list
         with self.init_scope():
             self.pos_encoder = LSTM_Encoder(3, 128, 10)
-            self.ego_encoder = LSTM_Encoder(6, 128, 10) 
+            self.ego_encoder = LSTM_Encoder(6, 128, 10)
             self.pose_encoder = LSTM_Encoder(36, 128, 10)
-            self.pos_decoder = LSTM_Encoder(10, 128, 10)
+            self.pos_decoder = LSTM_Encoder(384, 128, 10)
             # self.inter = Conv_Module(
             #     channel_list[-1]*3, dc_channel_list[0], inter_list)
             self.last = Conv_Module(
                 dc_channel_list[-1], self.nb_inputs, last_list, True)
+
 
     def __call__(self, inputs):
         pos_x, pos_y, offset_x, ego_x, ego_y, pose_x, pose_y = self._prepare_input(
             inputs)
         batch_size, past_len, _ = pos_x.shape
         
-        pos_x = numpy.asarray(pos_x).tolist()
-
-        # print("pos_x:", pos_x.shape)
         print("pos_x.type:", type(pos_x))
-        print(pos_x)
-        print("pos_x[0]", pos_x[0])
         print("pos_x[0].type:", type(pos_x[0]))
-        print("pose_x:", pose_x.shape)
-        print("ego_x:", ego_x.shape)
-        h_pos = self.pos_encoder(None, None, pos_x)
-        h_pose = self.pose_encoder(None, None, pose_x)
-        h_ego = self.ego_encoder(None, None, ego_x)
+        print("pos_x[0][0] type:", type(pos_x[0][0]))
+        # print("pos_x[0][0][0]", pos_x[0][0][0])
+        print("pos_x[0][0][0] type", type(pos_x[0][0][0]))
+        pos_x = handlerData(pos_x)
+        pose_x = handlerData(pose_x)
+        ego_x = handlerData(ego_x)
+
+        print("pos_x.type:", type(pos_x))
+        print("pos_x[0].type:", type(pos_x[0]))
+        print("pos_x[0][0] type:", type(pos_x[0][0]))
+        print("pos_x[0][0][0] type", type(pos_x[0][0][0]))
+        h_pos = cupy.asnumpy(self.pos_encoder(None, None, pos_x))
+        h_pose = cupy.asnumpy(self.pose_encoder(None, None, pose_x))
+        h_ego = cupy.asnumpy(self.ego_encoder(None, None, ego_x))
         print("h_pos:", h_pos.shape)
         print("h_pose:", h_pose.shape)
         print("h_ego:", h_ego.shape)
-        h = F.concat((h_pos, h_pose, h_ego), axis=1)  # (B, C, 2)
+
+        h = F.concat((h_pos, h_pose, h_ego), axis=2)  # (B, C, 2)
+        print("h type:",type(h))
         print("h:", h.shape)
         # h = self.inter(h)
-        h_pos = self.pos_decoder(h)
-        print("h_pos:", h_pos.shape)
+
+        h = handlerDataDecoder(h)
+
+        h_pos = cupy.asarray(np.array(self.pos_decoder(None, None, h)).astype(np.float32))
+        #print(h_pos)
+        # print(type(h_pos))
+        # print(h_pos.shape)
+        print("h_pos.type:", type(h_pos))
+        print("h_pos[0].type:", type(h_pos[0]))
+        print("h_pos[0][0] type:", type(h_pos[0][0]))
+        print("h_pos[0][0][0] type", type(h_pos[0][0][0]))
+
         pred_y = self.last(h_pos)  # (B, 10, C+6+28)
         pred_y = F.swapaxes(pred_y, 1, 2)
         pred_y = pred_y[:, :pos_y.shape[1], :]
