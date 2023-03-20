@@ -367,7 +367,7 @@ def handlerData(data):
 
 
 def handlerDataDecoder(data):
-    data = data.array.tolist()
+    data = data.tolist()
     for i in range(len(data)):
         for j in range(len(data[i])):
             for k in range(len(data[i][j])):
@@ -378,9 +378,9 @@ def handlerDataDecoder(data):
 def handlerLast(data):
     for i in range(len(data)):
         data[i] = chainer.backends.cuda.to_gpu(data[i].data)
-        for j in range(len(data[i])):
-            for k in range(len(data[i][j])):
-                data[i][j][k] = np.float32(data[i][j][k].get())
+        # for j in range(len(data[i])):
+        #     for k in range(len(data[i][j])):
+        #         data[i][j][k] = np.float32(data[i][j][k].get())
     return chainer.Variable(cupy.asarray(data))
 
 class LSTM_EGO_POS(LSTMBase):
@@ -423,16 +423,21 @@ class LSTM_EGO_POS(LSTMBase):
         # print("pos_x[0].type:", type(pos_x[0]))
         # print("pos_x[0][0] type:", type(pos_x[0][0]))
         # print("pos_x[0][0][0] type", type(pos_x[0][0][0]))
-        h_pos = cupy.asnumpy(self.pos_encoder(None, None, pos_x))
-        h_pose = cupy.asnumpy(self.pose_encoder(None, None, pose_x))
-        h_ego = cupy.asnumpy(self.ego_encoder(None, None, ego_x))
+        h_pos = self.pos_encoder(None, None, pos_x)
+        h_pose = self.pose_encoder(None, None, pose_x)
+        h_ego = self.ego_encoder(None, None, ego_x)
         # print("h_pos:", h_pos.shape)
         # print("h_pose:", h_pose.shape)
         # print("h_ego:", h_ego.shape)
 
-        h = F.concat((h_pos, h_pose, h_ego), axis=2)  # (B, C, 2)
-        # print("h type:", type(h))
-        # print("h:", h.shape)
+        h = np.concatenate((h_pos, h_pose, h_ego), axis=2)
+
+        # h = F.concat((h_pos, h_pose, h_ego), axis=2)  # (B, C, 2)
+        print("h.type:", type(h))
+        print("h[0].type:", type(h[0]))
+        print("h[0][0] type:", type(h[0][0]))
+        print("h[0][0][0] type", type(h[0][0][0]))
+        print("h:", h.shape)
         # h = self.inter(h)
 
         h = handlerDataDecoder(h)
@@ -442,14 +447,16 @@ class LSTM_EGO_POS(LSTMBase):
         # print(type(h_pos))
         # print(h_pos.shape)
 
-        # print("h_pos.type:", type(h_pos))
-        # print("h_pos[0].type:", type(h_pos[0]))
-        # print("h_pos[0][0] type:", type(h_pos[0][0]))
-        # print("h_pos[0][0][0] type", type(h_pos[0][0][0]))
+        print("h_pos.type:", type(h_pos))
+        print("h_pos[0].type:", type(h_pos[0]))
+        print("h_pos[0][0] type:", type(h_pos[0][0]))
+        print("h_pos[0][0][0] type", type(h_pos[0][0][0]))
         # print("h_pos:", h_pos)
 
         # 进入last之前需要处理数据，适配self.last
+        print("h_pos:", h_pos)
         h_pos = handlerLast(h_pos)
+
 
         # print("h_pos shape:",h_pos.shape)
 
